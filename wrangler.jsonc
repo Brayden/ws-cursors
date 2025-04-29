@@ -1,0 +1,25 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "ws-cursors",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-03-03",
+	"migrations": [
+		{
+			"new_sqlite_classes": [
+                "CursorDurableObject"
+			],
+			"tag": "v1"
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+            {
+				"class_name": "CursorDurableObject",
+				"name": "CURSOR_DURABLE_OBJECT"
+			}
+		]
+	},
+	"observability": {
+		"enabled": true
+	}
+}

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cursor Tracking</title>
+    <style>
+        html, 
+        body {
+            height: 100%;
+        }
+
+        .cursor {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            position: absolute;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            transition: all 0.1s ease;
+        }
+
+        #cursor-area {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body id="cursor-area">
+    <script>
+        let ws;
+        const area = document.getElementById('cursor-area');
+        const cursors = new Map();
+        let mySessionId = null;
+
+        // Replace with your WebSocket URL
+        const wsUrl = 'wss://ws-cursors.brayden-b8b.workers.dev/ws';
+        
+        function connect() {
+            ws = new WebSocket(`${wsUrl}`);
+
+            ws.onopen = () => {
+                // Place any configuration logic when a socket opens here.
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                switch (data.type) {
+                    case 'SESSION_ID':
+                        mySessionId = data.sessionId;
+                        break;
+                    case 'CURSOR_POSITION':
+                        updateCursor(data.userId, data.x, data.y);
+                        break;
+                    case 'USER_DISCONNECT':
+                        removeCursor(data.userId);
+                        break;
+                }
+            };
+
+            ws.onclose = () => {
+                // Place any configuration logic when a socket closes here.
+            };
+        }
+
+        function updateCursor(sessionId, x, y) {
+            let cursor = cursors.get(sessionId);
+            
+            if (!cursor) {
+                const color = `hsl(${Math.random() * 360}, 70%, 50%)`;
+                cursor = document.createElement('div');
+                cursor.className = 'cursor';
+                cursor.style.backgroundColor = color;
+                area.appendChild(cursor);
+                cursors.set(sessionId, cursor);
+            }
+
+            cursor.style.left = x + 'px';
+            cursor.style.top = y + 'px';
+        }
+
+        function removeCursor(sessionId) {
+            const cursor = cursors.get(sessionId);
+            if (cursor) {
+                cursor.remove();
+                cursors.delete(sessionId);
+                players.delete(sessionId);
+                updateLeaderboard();
+            }
+        }
+
+        area.addEventListener('mousemove', (e) => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const rect = area.getBoundingClientRect();
+                const x = Math.max(0, e.clientX - rect.left);
+                const y = Math.max(0, e.clientY - rect.top);
+                
+                throttledSendCursorUpdate(x, y);
+            }
+        });
+
+        let lastUpdate = 0;
+        let lastX = 0;
+        let lastY = 0;
+        const THROTTLE_MS = 50;
+        const MOVEMENT_THRESHOLD = 5;
+
+        function throttledSendCursorUpdate(x, y) {
+            const now = Date.now();
+            const timeSinceLastUpdate = now - lastUpdate;
+            const distance = Math.sqrt(Math.pow(x - lastX, 2) + Math.pow(y - lastY, 2));
+
+            if (timeSinceLastUpdate >= THROTTLE_MS && distance >= MOVEMENT_THRESHOLD) {
+                ws.send(JSON.stringify({
+                    type: 'CURSOR_UPDATED',
+                    x: x,
+                    y: y,
+                }));
+                
+                lastUpdate = now;
+                lastX = x;
+                lastY = y;
+            }
+        }
+
+        // Connect when the page loads
+        connect();
+    </script>
+</body>
+</html>
